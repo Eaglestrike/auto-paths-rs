@@ -18,7 +18,7 @@ pub struct PointData {
 }
 
 impl PointData {
-    pub(crate) fn xyr(x: f64, y: f64, r: f64) -> Self {
+    pub fn xyr(x: f64, y: f64, r: f64) -> Self {
         Self {
             pos: (x * si::M, y * si::M),
             rot: r,
@@ -170,6 +170,15 @@ pub enum ParentFrame<S: PointHeirarchy + Sized> {
     Parent(S),
 }
 
+impl<S: PointHeirarchy> ParentFrame<S> {
+    pub fn unwrap(&self) -> S {
+        match *self {
+            ParentFrame::Root => panic!(),
+            ParentFrame::Parent(x) => x,
+        }
+    }
+}
+
 pub trait PointHeirarchy: Sized + Copy + Into<usize> + Eq {
     fn parent(&self) -> ParentFrame<Self>;
 
@@ -218,11 +227,11 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
         Self(vec![PointData::default(); S::order()], PhantomData)
     }
 
-    pub fn set_relative_to_parent_raw(&mut self, frame: S, location: PointData) {
-        *self.0.get_mut(frame.into()).unwrap() = location;
+    pub fn raw_tf_mut(&mut self, frame: S) -> &mut PointData {
+        self.0.get_mut(frame.into()).unwrap()
     }
 
-    pub fn get_raw_tf(&self, frame: S) -> PointData {
+    pub fn raw_tf(&self, frame: S) -> PointData {
         *self.0.get(frame.into()).unwrap()
     }
 
@@ -234,7 +243,7 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
             ParentFrame::Parent(s) => p.in_frame(&self, s).1,
         };
 
-        self.set_relative_to_parent_raw(frame, data);
+        *self.raw_tf_mut(frame) = data;
     }
 }
 
@@ -250,12 +259,23 @@ impl<S: PointHeirarchy> TfPoint<S> {
         let (up, down) = self.0.path_to(frame);
         let mut result = self.1;
         up.iter()
-            .for_each(|x| result = result.inverse_relative_to(register.get_raw_tf(*x)));
+            .for_each(|x| result = result.inverse_relative_to(register.raw_tf(*x)));
         down.iter().for_each(|x| {
-            result =
-                result.inverse_relative_to(register.get_raw_tf(*x).invert_parent_child_relation())
+            result = result.inverse_relative_to(register.raw_tf(*x).invert_parent_child_relation())
         });
         Self(frame, result)
+    }
+
+    pub fn from_raw(raw: PointData, frame: S) -> Self {
+        Self(frame, raw)
+    }
+
+    pub fn raw_data(&self) -> PointData {
+        self.1
+    }
+
+    pub fn frame(&self) -> S {
+        self.0
     }
 }
 
@@ -333,8 +353,8 @@ mod test {
         let f = TfPoint::new(PathFrames::Switch, -1. * si::M, 2. * si::M, 0.787);
 
         // zero rotation
-        reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., 0.));
-        reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., 0.));
+        *reg.raw_tf_mut(PathFrames::Scale) = PointData::xyr(10., 3., 0.);
+        *reg.raw_tf_mut(PathFrames::Switch) = PointData::xyr(-5., 7., 0.);
         near_eq(
             p.in_frame(&reg, PathFrames::Field),
             TfPoint::new(PathFrames::Field, 15. * si::M, 3.0 * si::M, 0.321),
@@ -346,8 +366,8 @@ mod test {
 
         // axis aligned rotation
         use std::f64::consts::PI;
-        reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., PI));
-        reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., PI / 2.));
+        *reg.raw_tf_mut(PathFrames::Scale) = PointData::xyr(10., 3., PI);
+        *reg.raw_tf_mut(PathFrames::Switch) = PointData::xyr(-5., 7., PI / 2.);
         near_eq(
             p.in_frame(&reg, PathFrames::Field),
             TfPoint::new(PathFrames::Field, 5. * si::M, 3.0 * si::M, 0.321 + PI),
@@ -371,8 +391,8 @@ mod test {
         let f = TfPoint::new(PathFrames::Switch, -1. * si::M, 2. * si::M, 0.787);
 
         // zero rotation
-        // reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., 0.));
-        // reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., 0.));
+        // reg.set_tf_from_parent(PathFrames::Scale, PointData::xyr(10., 3., 0.));
+        // reg.set_tf_from_parent(PathFrames::Switch, PointData::xyr(-5., 7., 0.));
         reg.set_origin(
             PathFrames::Scale,
             TfPoint::new(PathFrames::Field, 10. * si::M, 3. * si::M, 0.),
@@ -396,54 +416,3 @@ mod test {
         // TODO(Lytigas): tests between different frames that have root parents
     }
 }
-
-// // ideal interface:
-// /*
-// let camera = Robot::add(x, y, orientation)
-// Field::AddTransform(from=Robot, to=Field, tf=RigidTransform)
-// camera.getAs::<Field>()
-// */
-// use std::rc::*;
-
-// pub trait SysMarker where Self: Sized {
-//     fn rootFrame() -> &'static CoordinateFrame<Self>;
-// }
-
-// pub struct CoordinateFrame<S: SysMarker> {
-//     tag: PhantomData<S>,
-//     parent: Origin<S>,
-// }
-
-// enum Origin<S: SysMarker> {
-//     Root,
-//     Origin(TfPoint<S>),
-// }
-
-// pub struct TfPoint<S: SysMarker> {
-//     parent: Rc<CoordinateFrame<S>>,
-//     data: PointData,
-// }
-
-// impl<S: SysMarker> TfPoint<S> {
-//     fn inParentFrame(&self, frame: Rc<CoordinateFrame<S>>) -> Option<TfPoint<S>> {
-
-//     }
-// }
-
-// struct FieldSystem;
-// impl SysMarker for FieldSystem {}
-
-// fn test() {
-//     let field = Rc::new(CoordinateFrame {
-//         tag: PhantomData,
-//         parent: Origin::Root,
-//     });
-//     let point = TfPoint {
-//         parent: field.clone(),
-//         data: PointData {
-//             pos: (0. * si::M, 0. * si::M),
-//             rot: 0.,
-//         },
-//     };
-//     let RobotFrame
-// }
