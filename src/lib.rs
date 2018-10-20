@@ -18,6 +18,13 @@ pub struct PointData {
 }
 
 impl PointData {
+    pub(crate) fn xyr(x: f64, y: f64, r: f64) -> Self {
+        Self {
+            pos: (x * si::M, y * si::M),
+            rot: r,
+        }
+    }
+
     pub(crate) fn inverse_relative_to(&self, other: Self) -> Self {
         // what do I need to transform other to to get where I am
         let s = self.pos;
@@ -84,7 +91,7 @@ mod point_data_test {
             assert_approx_eq!(fprime.pos.0 / si::M, f.pos.0 / si::M, 1e-4);
             assert_approx_eq!(fprime.pos.1 / si::M, f.pos.1 / si::M, 1e-4);
             assert_approx_eq!(fprime.rot, f.rot, 1e-4);
-            println!("Double inversion passed for {:?}", f);
+            // println!("Double inversion passed for {:?}", f);
         }
 
         let mut rng = XorShiftRng::from_seed([
@@ -109,7 +116,7 @@ mod point_data_test {
             assert_approx_eq!(prime.pos.0 / si::M, p.pos.0 / si::M, 1e-4);
             assert_approx_eq!(prime.pos.1 / si::M, p.pos.1 / si::M, 1e-4);
             assert_approx_eq!(prime.rot, p.rot, 1e-4);
-            println!("Inverse relative to reversal passed for {:?}", p);
+            // println!("Inverse relative to reversal passed for {:?}", p);
         }
 
         fn test_point_2(p: PointData, frame: PointData, frame2: PointData) {
@@ -121,7 +128,7 @@ mod point_data_test {
             assert_approx_eq!(prime.pos.0 / si::M, p.pos.0 / si::M, 1e-4);
             assert_approx_eq!(prime.pos.1 / si::M, p.pos.1 / si::M, 1e-4);
             assert_approx_eq!(prime.rot, p.rot, 1e-4);
-            println!("Inverse relative to reversal passed for {:?}", p);
+            // println!("Inverse relative to reversal passed for {:?}", p);
         }
 
         let mut rng = XorShiftRng::from_seed([
@@ -218,8 +225,20 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
     pub fn get_raw_tf(&self, frame: S) -> PointData {
         *self.0.get(frame.into()).unwrap()
     }
+
+    /// # Panics
+    /// If you attempt to set the origin of a frame whose parent is `ParentFrame::Root`.
+    pub fn set_origin(&mut self, frame: S, p: TfPoint<S>) {
+        let data = match frame.parent() {
+            ParentFrame::Root => panic!(),
+            ParentFrame::Parent(s) => p.in_frame(&self, s).1,
+        };
+
+        self.set_relative_to_parent_raw(frame, data);
+    }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct TfPoint<S: PointHeirarchy>(S, PointData);
 
 impl<S: PointHeirarchy> TfPoint<S> {
@@ -227,7 +246,7 @@ impl<S: PointHeirarchy> TfPoint<S> {
         Self(frame, PointData { pos: (x, y), rot })
     }
 
-    pub fn in_frame(&self, register: FrameRegistry<S>, frame: S) -> Self {
+    pub fn in_frame(&self, register: &FrameRegistry<S>, frame: S) -> Self {
         let (up, down) = self.0.path_to(frame);
         let mut result = self.1;
         up.iter()
@@ -243,6 +262,7 @@ impl<S: PointHeirarchy> TfPoint<S> {
 #[cfg(test)]
 mod test {
     use super::*;
+    // TODO macroify this and the impl trait
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     #[repr(usize)]
     pub enum PathFrames {
@@ -261,9 +281,6 @@ mod test {
         }
     }
 
-    // static PATH_FRAMES_REGISTRY: Mutex<Vec<PointData>> = Mutex::new(Vec::new());
-
-    // TODO enumify this and the child method
     impl PointHeirarchy for PathFrames {
         fn parent(&self) -> ParentFrame<Self> {
             use self::PathFrames::*;
@@ -281,14 +298,10 @@ mod test {
         fn order() -> usize {
             7
         }
-
-        // fn registry() -> MutexGuard<'static, Vec<PointData>> {
-        //     PATH_FRAMES_REGISTRY.lock().unwrap()
-        // }
     }
 
     #[test]
-    fn test() {
+    fn heirarchy() {
         println!("{:?}", PathFrames::ScaleEst.path_to(PathFrames::CubeDepo));
         use self::PathFrames::*;
         assert_eq!(
@@ -303,6 +316,84 @@ mod test {
             PathFrames::ScaleEst.path_to(PathFrames::Field),
             (vec![ScaleEst, Camera, Robot, Field], vec![Field])
         );
+    }
+
+    fn near_eq<S: PointHeirarchy>(a: TfPoint<S>, b: TfPoint<S>) {
+        assert!(a.0 == b.0);
+        assert_approx_eq!(a.1.pos.0 / si::M, b.1.pos.0 / si::M);
+        assert_approx_eq!(a.1.pos.1 / si::M, b.1.pos.1 / si::M);
+        assert_approx_eq!(a.1.rot, b.1.rot);
+    }
+
+    #[test]
+    fn raw_rooted_transforms() {
+        let mut reg = FrameRegistry::<PathFrames>::new();
+
+        let p = TfPoint::new(PathFrames::Scale, 5. * si::M, 0. * si::M, 0.321);
+        let f = TfPoint::new(PathFrames::Switch, -1. * si::M, 2. * si::M, 0.787);
+
+        // zero rotation
+        reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., 0.));
+        reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., 0.));
+        near_eq(
+            p.in_frame(&reg, PathFrames::Field),
+            TfPoint::new(PathFrames::Field, 15. * si::M, 3.0 * si::M, 0.321),
+        );
+        near_eq(
+            f.in_frame(&reg, PathFrames::Scale),
+            TfPoint::new(PathFrames::Scale, -16. * si::M, 6.0 * si::M, 0.787),
+        );
+
+        // axis aligned rotation
+        use std::f64::consts::PI;
+        reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., PI));
+        reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., PI / 2.));
+        near_eq(
+            p.in_frame(&reg, PathFrames::Field),
+            TfPoint::new(PathFrames::Field, 5. * si::M, 3.0 * si::M, 0.321 + PI),
+        );
+        near_eq(
+            f.in_frame(&reg, PathFrames::Scale),
+            TfPoint::new(
+                PathFrames::Scale,
+                17. * si::M,
+                -3. * si::M,
+                -(PI / 2. - 0.787),
+            ),
+        );
+    }
+
+    #[test]
+    fn transforms() {
+        let mut reg = FrameRegistry::<PathFrames>::new();
+
+        let p = TfPoint::new(PathFrames::Scale, 5. * si::M, 0. * si::M, 0.321);
+        let f = TfPoint::new(PathFrames::Switch, -1. * si::M, 2. * si::M, 0.787);
+
+        // zero rotation
+        // reg.set_relative_to_parent_raw(PathFrames::Scale, PointData::xyr(10., 3., 0.));
+        // reg.set_relative_to_parent_raw(PathFrames::Switch, PointData::xyr(-5., 7., 0.));
+        reg.set_origin(
+            PathFrames::Scale,
+            TfPoint::new(PathFrames::Field, 10. * si::M, 3. * si::M, 0.),
+        );
+
+        reg.set_origin(
+            PathFrames::Switch,
+            TfPoint::new(PathFrames::Scale, -15. * si::M, 4. * si::M, 0.),
+        );
+        near_eq(
+            p.in_frame(&reg, PathFrames::Field),
+            TfPoint::new(PathFrames::Field, 15. * si::M, 3.0 * si::M, 0.321),
+        );
+        near_eq(
+            f.in_frame(&reg, PathFrames::Scale),
+            TfPoint::new(PathFrames::Scale, -16. * si::M, 6.0 * si::M, 0.787),
+        );
+
+        // TODO(Lytigas): axis aligned rotation
+        // TODO(Lytigas): non axis aligned tests
+        // TODO(Lytigas): tests between different frames that have root parents
     }
 }
 
