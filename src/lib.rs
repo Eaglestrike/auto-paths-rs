@@ -7,8 +7,8 @@ extern crate assert_approx_eq;
 use dim::si;
 use std::marker::PhantomData;
 
-type Meter = dim::si::Meter<f64>;
-type Radians = f64;
+pub type Meter = dim::si::Meter<f64>;
+pub type Radians = f64;
 
 // /// Represents a Rigid transformation in two dimensions, a rotation
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -48,6 +48,22 @@ impl PointData {
             ),
             rot: t,
         }
+    }
+
+    pub fn x(&self) -> Meter {
+        self.pos.0
+    }
+
+    pub fn y(&self) -> Meter {
+        self.pos.1
+    }
+
+    pub fn pos(&self) -> (Meter, Meter) {
+        self.pos
+    }
+
+    pub fn rot(&self) -> Radians {
+        self.rot
     }
 }
 
