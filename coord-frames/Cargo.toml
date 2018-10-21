@@ -1,0 +1,12 @@
+[package]
+name = "coord-frames"
+version = "0.1.0"
+authors = ["Josh Hejna <josh.hejna@gmail.com>"]
+
+[dependencies]
+dimensioned = "0.7.0"
+
+
+[dev-dependencies]
+assert_approx_eq = "1.0.0"
+rand = "0.5.5"
