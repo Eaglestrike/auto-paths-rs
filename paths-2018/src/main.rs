@@ -67,9 +67,9 @@ fn main() {
     // comes in facing forward
     let far_scale = TfPoint::new(
         PathFrame::Field,
-        -(FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE - SCALE_PLATE_WIDTH / 2.),
-        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2. - 0.254 * si::M,
-        PI2,
+        -(FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE + 0.1 * si::M),
+        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2.,
+        3. * PI / 10.,
     );
 
     let gen_center_switch = || {
@@ -111,8 +111,46 @@ fn main() {
                 zero_kappa(side_start.raw_data().mirror(Y)),
                 zero_kappa(near_scale.raw_data().mirror(Y)),
             ],
-            vec![basic_param(4.0)],
+            vec![EtaParam::new(5., 10.0, 0., 20., 0., 0.)],
             "leftToLeftScale",
+            400,
+        );
+        // far scales
+        export_path(
+            vec![
+                zero_kappa(side_start.raw_data()),
+                zero_kappa(
+                    TfPoint::new(
+                        PathFrame::Field,
+                        FIELD_WIDTH / 2. - WALL_TO_SWITCH_EDGE / 2.,
+                        BASELINE_TO_SWITCH_FAR,
+                        PI2,
+                    )
+                    .raw_data(),
+                ),
+                with_kappa(far_scale.raw_data(), 0., 0.),
+            ],
+            vec![basic_param(5.0), EtaParam::new(15.0, 20.0, 0., 0., 0., 0.)],
+            "rightToLeftScale",
+            400,
+        );
+        export_path(
+            vec![
+                zero_kappa(side_start.raw_data().mirror(Y)),
+                zero_kappa(
+                    TfPoint::new(
+                        PathFrame::Field,
+                        FIELD_WIDTH / 2. - WALL_TO_SWITCH_EDGE / 2.,
+                        BASELINE_TO_SWITCH_FAR,
+                        PI2,
+                    )
+                    .raw_data()
+                    .mirror(Y),
+                ),
+                with_kappa(far_scale.raw_data().mirror(Y), 0., 0.),
+            ],
+            vec![basic_param(5.0), EtaParam::new(15.0, 20.0, 0., 0., 0., 0.)],
+            "leftToRightScale",
             400,
         );
     };
