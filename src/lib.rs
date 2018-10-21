@@ -244,11 +244,11 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
     }
 
     pub fn raw_tf_mut(&mut self, frame: S) -> &mut PointData {
-        self.0.get_mut(frame.into()).unwrap()
+        &mut self.0[frame.into()]
     }
 
     pub fn raw_tf(&self, frame: S) -> PointData {
-        *self.0.get(frame.into()).unwrap()
+        self.0[frame.into()]
     }
 
     /// # Panics
@@ -260,6 +260,12 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
         };
 
         *self.raw_tf_mut(frame) = data;
+    }
+}
+
+impl<S: PointHeirarchy> Default for FrameRegistry<S> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
