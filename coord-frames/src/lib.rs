@@ -1,4 +1,5 @@
 #![feature(self_struct_ctor)]
+#![feature(const_fn)]
 extern crate dimensioned as dim;
 
 #[cfg(test)]
@@ -10,6 +11,12 @@ use std::marker::PhantomData;
 pub type Meter = dim::si::Meter<f64>;
 pub type Radians = f64;
 
+#[derive(Debug, Copy, Clone)]
+pub enum Axis {
+    X,
+    Y,
+}
+
 // /// Represents a Rigid transformation in two dimensions, a rotation
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PointData {
@@ -17,14 +24,26 @@ pub struct PointData {
     rot: Radians,
 }
 
+#[macro_export]
+macro_rules! const_unit {
+    ($val:expr) => {
+        ::dim::si::SI {
+            value_unsafe: $val,
+            _marker: ::std::marker::PhantomData,
+        }
+    };
+}
+
 impl PointData {
-    pub fn xyr(x: f64, y: f64, r: f64) -> Self {
+    #[inline]
+    pub const fn xyr(x: f64, y: f64, r: f64) -> Self {
         Self {
-            pos: (x * si::M, y * si::M),
+            pos: (const_unit!(x), const_unit!(y)),
             rot: r,
         }
     }
 
+    #[inline]
     pub(crate) fn inverse_relative_to(&self, other: Self) -> Self {
         // what do I need to transform other to to get where I am
         let s = self.pos;
@@ -38,6 +57,7 @@ impl PointData {
         }
     }
 
+    #[inline]
     pub(crate) fn invert_parent_child_relation(&self) -> Self {
         let s = self.pos;
         let t = -self.rot;
@@ -50,24 +70,53 @@ impl PointData {
         }
     }
 
+    #[inline]
     pub fn x(&self) -> Meter {
         self.pos.0
     }
 
+    #[inline]
     pub fn y(&self) -> Meter {
         self.pos.1
     }
 
+    #[inline]
     pub fn pos(&self) -> (Meter, Meter) {
         self.pos
     }
 
+    #[inline]
     pub fn rot(&self) -> Radians {
         self.rot
+    }
+
+    #[inline]
+    pub fn mirror(&self, axis: Axis) -> Self {
+        match axis {
+            Axis::X => Self {
+                pos: (self.pos.0, -self.pos.1),
+                rot: -self.rot,
+            },
+            Axis::Y => Self {
+                pos: (-self.pos.0, self.pos.1),
+                rot: std::f64::consts::PI - self.rot,
+            },
+        }
+    }
+}
+
+impl std::ops::Add for PointData {
+    type Output = PointData;
+    fn add(self, rhs: PointData) -> PointData {
+        Self {
+            pos: (self.pos.0 + rhs.pos.0, self.pos.1 + rhs.pos.1),
+            rot: self.rot + rhs.rot,
+        }
     }
 }
 
 impl Default for PointData {
+    #[inline]
     fn default() -> Self {
         Self {
             pos: (0. * si::M, 0. * si::M),
@@ -187,6 +236,7 @@ pub enum ParentFrame<S: PointHeirarchy + Sized> {
 }
 
 impl<S: PointHeirarchy> ParentFrame<S> {
+    #[inline]
     pub fn unwrap(&self) -> S {
         match *self {
             ParentFrame::Root => panic!(),
@@ -233,26 +283,29 @@ pub trait PointHeirarchy: Sized + Copy + Into<usize> + Eq {
     }
 
     fn order() -> usize;
-    // fn registry() -> MutexGuard<'static, Vec<PointData>>;
 }
 
 pub struct FrameRegistry<S: PointHeirarchy>(Vec<PointData>, PhantomData<S>);
 
 impl<S: PointHeirarchy> FrameRegistry<S> {
+    #[inline]
     pub fn new() -> Self {
         Self(vec![PointData::default(); S::order()], PhantomData)
     }
 
+    #[inline]
     pub fn raw_tf_mut(&mut self, frame: S) -> &mut PointData {
         &mut self.0[frame.into()]
     }
 
+    #[inline]
     pub fn raw_tf(&self, frame: S) -> PointData {
         self.0[frame.into()]
     }
 
     /// # Panics
     /// If you attempt to set the origin of a frame whose parent is `ParentFrame::Root`.
+    #[inline]
     pub fn set_origin(&mut self, frame: S, p: TfPoint<S>) {
         let data = match frame.parent() {
             ParentFrame::Root => panic!(),
@@ -264,6 +317,7 @@ impl<S: PointHeirarchy> FrameRegistry<S> {
 }
 
 impl<S: PointHeirarchy> Default for FrameRegistry<S> {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -273,10 +327,12 @@ impl<S: PointHeirarchy> Default for FrameRegistry<S> {
 pub struct TfPoint<S: PointHeirarchy>(S, PointData);
 
 impl<S: PointHeirarchy> TfPoint<S> {
-    pub fn new(frame: S, x: Meter, y: Meter, rot: Radians) -> Self {
+    #[inline]
+    pub const fn new(frame: S, x: Meter, y: Meter, rot: Radians) -> Self {
         Self(frame, PointData { pos: (x, y), rot })
     }
 
+    #[inline]
     pub fn in_frame(&self, register: &FrameRegistry<S>, frame: S) -> Self {
         let (up, down) = self.0.path_to(frame);
         let mut result = self.1;
@@ -288,16 +344,32 @@ impl<S: PointHeirarchy> TfPoint<S> {
         Self(frame, result)
     }
 
+    #[inline]
     pub fn from_raw(raw: PointData, frame: S) -> Self {
         Self(frame, raw)
     }
 
+    #[inline]
     pub fn raw_data(&self) -> PointData {
         self.1
     }
 
+    #[inline]
     pub fn frame(&self) -> S {
         self.0
+    }
+
+    #[inline]
+    pub fn mirror(&self, axis: Axis) -> Self {
+        Self::from_raw(self.1.mirror(axis), self.0)
+    }
+}
+
+impl<S: PointHeirarchy> std::ops::Add<PointData> for TfPoint<S> {
+    type Output = Self;
+    #[inline]
+    fn add(self, rhs: PointData) -> TfPoint<S> {
+        TfPoint::from_raw(self.1 + rhs, self.0)
     }
 }
 

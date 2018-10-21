@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 coord-frames = {path = "../coord-frames"}
 dimensioned = "0.7.0"
+eta3-spline = {git = "https://github.com/Lytigas/eta3-spline"}
