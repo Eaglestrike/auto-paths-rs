@@ -58,6 +58,9 @@ def main():
     ax.imshow(image, extent=[0, IMAGE_WIDTH_FT,
                              IMAGE_HEIGHT_FT/2.0, -IMAGE_HEIGHT_FT/2.0])
 
+    # axes
+    plt.axvline(0, color='black')
+
     # the path
     ax.plot(y_dat, x_dat, '.', linewidth=1, color='firebrick', zorder=10)
     ax.plot(y_interp, x_interp, '.', linewidth=1, color='green', zorder=5)
