@@ -169,7 +169,6 @@ fn with_kappa(point: PointData, k: f64, dk: f64) -> MotionState<f64> {
 }
 
 use std::fs;
-use std::io::prelude::*;
 fn export_pose(point: PointData, name: &str) {
     fs::write(
         format!("out/{}.java", name),
