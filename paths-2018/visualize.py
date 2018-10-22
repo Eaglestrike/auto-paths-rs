@@ -32,44 +32,38 @@ def box(xy, norm_len, axial_len):
     return out
 
 
+IMAGE_HEIGHT_FT = 27.0
+IMAGE_WIDTH_FT = 54.0
+
+ROBOT_WIDTH = 2.83333333
+ROBOT_LENGTH = 3.125
+
+
 def main():
-    file = open(sys.argv[1], 'r')
-    lines = file.readlines()
-    lines = lines[1:-1]
+    with open(sys.argv[1], 'r') as file:
+        lines = file.readlines()
+    lines = lines[1:-1]  # header and vector footer
+
     data = [line.split(",") for line in lines]
     xy_pts = [(float(datum[0]), float(datum[1]))
               for datum in data if not to_bool(datum[3])]
     xy_interp = [(float(datum[0]), float(datum[1]))
                  for datum in data if to_bool(datum[3])]
-
-    ROBOT_WIDTH = 2.83333333
-    ROBOT_LENGTH = 3.125
     bounds = box(xy_pts, ROBOT_WIDTH, ROBOT_LENGTH)
 
-    x_dat = [pt[0] for pt in xy_pts]
-    y_dat = [pt[1] for pt in xy_pts]
-    x_interp = [pt[0] for pt in xy_interp]
-    y_interp = [pt[1] for pt in xy_interp]
-
-    IMAGE_HEIGHT_FT = 27.0
-    IMAGE_WIDTH_FT = 54.0
+    _fig, ax = plt.subplots()
     image = plt.imread("fieldCropped.png")
-    fig, ax = plt.subplots()
     ax.imshow(image, extent=[0, IMAGE_WIDTH_FT,
                              IMAGE_HEIGHT_FT/2.0, -IMAGE_HEIGHT_FT/2.0])
 
-    # axes
+    # vertical axis
     plt.axvline(0, color='black')
 
-    # the path
+    # path + interpolation
+    x_dat, y_dat = zip(*xy_pts)
     ax.plot(y_dat, x_dat, '.', linewidth=1, color='firebrick', zorder=10)
+    x_interp, y_interp = zip(*xy_interp)
     ax.plot(y_interp, x_interp, '.', linewidth=1, color='green', zorder=5)
-
-    # safety lines
-    ax.plot([i / 5 for i in range(200)], [-IMAGE_HEIGHT_FT /
-                                          2.0 + ROBOT_WIDTH/2 for i in range(200)], zorder=0)
-    ax.plot([i / 5 for i in range(200)], [IMAGE_HEIGHT_FT /
-                                          2.0 - ROBOT_WIDTH/2 for i in range(200)], zorder=0)
 
     # front corners
     for corner in bounds[:2]:
