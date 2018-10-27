@@ -14,6 +14,7 @@ const_meter!(BASELINE_TO_SCALE_PLATE_EDGE, 7.61111);
 const_meter!(BASELINE_TO_PLATFORM, 6.641338);
 
 const_meter!(MIDLINE_TO_EXCHANGE_EDGE, 0.3048);
+const_meter!(MIDLINE_TO_DIAMOND_PLATE_END, 3.3528);
 
 const_meter!(WALL_TO_SCALE_PLATE_EDGE, 1.82245);
 const_meter!(WALL_TO_SWITCH_EDGE, 2.16535);
@@ -41,7 +42,7 @@ fn main() {
     );
     let side_start = TfPoint::new(
         PathFrame::Field,
-        FIELD_WIDTH / 2. - WALL_TO_SWITCH_EDGE + ROBOT_WIDTH / 2.,
+        MIDLINE_TO_DIAMOND_PLATE_END - ROBOT_WIDTH / 2.,
         ROBOT_LENGTH / 2.,
         PI2,
     );
@@ -102,7 +103,7 @@ fn main() {
                 zero_kappa(side_start.raw_data()),
                 with_kappa(near_scale.raw_data(), 2., 0.),
             ],
-            vec![EtaParam::new(5., 10.0, 0., 20., 0., 0.)],
+            vec![EtaParam::new(5., 10.0, 0., 25., 0., 0.)],
             "rightToRightScale",
             400,
         );
@@ -111,7 +112,7 @@ fn main() {
                 zero_kappa(side_start.raw_data().mirror(Y)),
                 zero_kappa(near_scale.raw_data().mirror(Y)),
             ],
-            vec![EtaParam::new(5., 10.0, 0., 20., 0., 0.)],
+            vec![EtaParam::new(5., 10.0, 0., 25., 0., 0.)],
             "leftToLeftScale",
             400,
         );
