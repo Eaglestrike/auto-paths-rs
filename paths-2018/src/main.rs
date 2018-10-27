@@ -155,6 +155,30 @@ fn main() {
         );
     };
     gen_side_scale();
+
+    // near switch
+    let gen_near_switch = || {
+        use self::Axis::Y;
+        export_path(
+            vec![
+                zero_kappa(side_start.raw_data()),
+                zero_kappa(near_switch.raw_data()),
+            ],
+            vec![basic_param(10.0)],
+            "rightToRightSwitch",
+            300,
+        );
+        export_path(
+            vec![
+                zero_kappa(side_start.raw_data().mirror(Y)),
+                zero_kappa(near_switch.raw_data().mirror(Y)),
+            ],
+            vec![basic_param(10.0)],
+            "leftToLeftSwitch",
+            300,
+        );
+    };
+    gen_near_switch();
 }
 
 fn with_kappa(point: PointData, k: f64, dk: f64) -> MotionState<f64> {
@@ -173,7 +197,7 @@ fn export_pose(point: PointData, name: &str) {
     fs::write(
         format!("out/{}.java", name),
         format!(
-            "public static Pose {} = new Pose({}, {}, {}, 0.0)",
+            "public static Pose {} = new Pose({}, {}, {}, 0.0);",
             name,
             *(point.x() / si::M) * 3.28084,
             *(point.y() / si::M) * 3.28084,
