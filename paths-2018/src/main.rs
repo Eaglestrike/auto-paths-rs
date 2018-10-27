@@ -77,9 +77,9 @@ fn main() {
     // comes in facing forward
     let far_scale = TfPoint::new(
         PathFrame::Field,
-        -(FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE + 0.1 * si::M),
-        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2.,
-        3. * PI / 10.,
+        -(FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE),
+        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2. - 0.32 * si::M,
+        4.5 * PI / 10.,
     );
 
     let gen_center_switch = || {
@@ -140,7 +140,7 @@ fn main() {
                 ),
                 with_kappa(far_scale.raw_data(), 0., 0.),
             ],
-            vec![basic_param(5.0), EtaParam::new(15.0, 20.0, 0., 0., 0., 0.)],
+            vec![basic_param(5.0), EtaParam::new(15.0, 12.5, 0., 0., 0., 0.)],
             "rightToLeftScale",
             400,
         );
@@ -159,7 +159,7 @@ fn main() {
                 ),
                 with_kappa(far_scale.raw_data().mirror(Y), 0., 0.),
             ],
-            vec![basic_param(5.0), EtaParam::new(15.0, 20.0, 0., 0., 0., 0.)],
+            vec![basic_param(5.0), EtaParam::new(15.0, 12.5, 0., 0., 0., 0.)],
             "leftToRightScale",
             400,
         );
