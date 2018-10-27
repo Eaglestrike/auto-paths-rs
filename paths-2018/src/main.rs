@@ -71,15 +71,15 @@ fn main() {
     let near_scale = TfPoint::new(
         PathFrame::Field,
         FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE + ROBOT_LENGTH / 2. + 0.254 * si::M,
-        BASELINE_TO_SCALE_PLATE_EDGE + SCALE_PLATE_LENGTH / 2.,
-        PI,
+        BASELINE_TO_SCALE_PLATE_EDGE + SCALE_PLATE_LENGTH / 2. - 0.1 * si::M,
+        PI + 0.254,
     );
     // comes in facing forward
     let far_scale = TfPoint::new(
         PathFrame::Field,
         -(FIELD_WIDTH / 2. - WALL_TO_SCALE_PLATE_EDGE),
-        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2. - 0.32 * si::M,
-        4.5 * PI / 10.,
+        BASELINE_TO_SCALE_PLATE_EDGE - ROBOT_LENGTH / 2. - 0.4 * si::M,
+        4.3 * PI / 10.,
     );
 
     let gen_center_switch = || {
