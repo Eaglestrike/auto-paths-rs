@@ -58,6 +58,15 @@ fn main() {
         PI2,
     );
     let far_switch = near_switch.mirror(Axis::Y);
+
+    // near side switch but approaches from the axis of the switch
+    let near_switch_outside = TfPoint::new(
+        PathFrame::Field,
+        FIELD_WIDTH / 2. - WALL_TO_SWITCH_EDGE + ROBOT_LENGTH / 2.,
+        BASELINE_TO_SWITCH_NEAR + SCALE_PLATE_LENGTH / 2.,
+        PI,
+    );
+
     // faces from the outside looking in
     let near_scale = TfPoint::new(
         PathFrame::Field,
@@ -163,7 +172,7 @@ fn main() {
         export_path(
             vec![
                 zero_kappa(side_start.raw_data()),
-                zero_kappa(near_switch.raw_data()),
+                zero_kappa(near_switch_outside.raw_data()),
             ],
             vec![basic_param(10.0)],
             "rightToRightSwitch",
@@ -172,7 +181,7 @@ fn main() {
         export_path(
             vec![
                 zero_kappa(side_start.raw_data().mirror(Y)),
-                zero_kappa(near_switch.raw_data().mirror(Y)),
+                zero_kappa(near_switch_outside.raw_data().mirror(Y)),
             ],
             vec![basic_param(10.0)],
             "leftToLeftSwitch",
